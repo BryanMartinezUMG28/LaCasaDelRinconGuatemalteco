@@ -38,6 +38,9 @@
         .result-item:hover {
             background-color: #f1f1f1;
         }
+        .table th, .table td {
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -60,7 +63,6 @@
             <li class="nav-item">
                 <a class="nav-link" href="{{ route('productos') }}">Productos</a>
             </li>
-            
         </ul>
     </div>
 </nav>
@@ -108,8 +110,36 @@
                     <option value="tarjeta">Tarjeta</option>
                 </select>
             </div>
-            <button type="submit" class="btn btn-success">Confirmar Pago</button>
+            <button type="button" class="btn btn-success" onclick="mostrarFormularioCliente()">Confirmar Pago</button>
         </form>
+    </div>
+</div>
+
+<!-- Modal para ingresar datos del cliente -->
+<div class="modal fade" id="clienteModal" tabindex="-1" role="dialog" aria-labelledby="clienteModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="clienteModalLabel">Ingrese los Datos del Cliente</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="nombreCliente">Nombre del Cliente</label>
+                    <input type="text" class="form-control" id="nombreCliente" required>
+                </div>
+                <div class="form-group">
+                    <label for="nitCliente">Número de NIT</label>
+                    <input type="text" class="form-control" id="nitCliente" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary" onclick="generarFactura()">Generar Factura</button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -117,6 +147,10 @@
 <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
 <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+<!-- jsPDF for PDF Generation -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
 <script>
     let total = 0;
     const carrito = [];
@@ -135,11 +169,32 @@
         // Simulando un retardo de la API
         return new Promise(resolve => {
             const productos = [
-                { id: 1, nombre: 'Producto 1', precio: 10.00 },
-                { id: 2, nombre: 'Producto 2', precio: 20.00 },
-                { id: 3, nombre: 'Producto 3', precio: 15.00 },
-                { id: 4, nombre: 'Producto 4', precio: 25.00 },
-                { id: 5, nombre: 'Producto 5', precio: 30.00 }
+                { id: 1, nombre: 'Cebollas', precio: 1.50 },
+                { id: 2, nombre: 'Tomates', precio: 2.00 },
+                { id: 3, nombre: 'Zanahorias', precio: 1.20 },
+                { id: 4, nombre: 'Papitas', precio: 0.80 },
+                { id: 5, nombre: 'Lechuga', precio: 1.00 },
+                { id: 6, nombre: 'Manzanas', precio: 3.00 },
+                { id: 7, nombre: 'Plátanos', precio: 1.50 },
+                { id: 8, nombre: 'Uvas', precio: 4.00 },
+                { id: 9, nombre: 'Gaseosa Cola', precio: 1.50 },
+                { id: 10, nombre: 'Gaseosa Naranja', precio: 1.50 },
+                { id: 11, nombre: 'Jugo de Naranja', precio: 2.50 },
+                { id: 12, nombre: 'Agua Mineral', precio: 1.00 },
+                { id: 13, nombre: 'Pan de Caja', precio: 2.00 },
+                { id: 14, nombre: 'Arroz', precio: 1.80 },
+                { id: 15, nombre: 'Frijoles', precio: 1.50 },
+                { id: 16, nombre: 'Aceite de Oliva', precio: 6.00 },
+                { id: 17, nombre: 'Sal', precio: 0.50 },
+                { id: 18, nombre: 'Pasta', precio: 1.50 },
+                { id: 19, nombre: 'Salsa de Tomate', precio: 2.00 },
+                { id: 20, nombre: 'Queso', precio: 3.50 },
+                { id: 21, nombre: 'Yogur', precio: 1.20 },
+                { id: 22, nombre: 'Huevos', precio: 2.50 },
+                { id: 23, nombre: 'Carne de Pollo', precio: 5.00 },
+                { id: 24, nombre: 'Carne de Res', precio: 7.00 },
+                { id: 25, nombre: 'Pescado', precio: 6.50 }
+
             ];
 
             const resultados = productos.filter(p => p.nombre.toLowerCase().includes(query.toLowerCase()));
@@ -176,7 +231,7 @@
         actualizarCarrito();
     }
 
-    // Actualizar el carrito en la tabla
+    // Actualizar el carrito en la tabla y el total a pagar
     function actualizarCarrito() {
         const carritoBody = document.getElementById('carritoBody');
         carritoBody.innerHTML = ''; // Limpiar la tabla
@@ -191,51 +246,70 @@
             row.innerHTML = `
                 <td>${item.nombre}</td>
                 <td>
-                    <input type="number" value="${item.cantidad}" min="1" onchange="actualizarCantidad(${item.id}, this.value)">
+                    <input type="number" value="${item.cantidad}" min="1" class="form-control" onchange="actualizarCantidad(${item.id}, this.value)">
                 </td>
                 <td>$${item.precio.toFixed(2)}</td>
                 <td>$${subtotal.toFixed(2)}</td>
-                <td>
-                    <button class="btn btn-danger btn-sm" onclick="eliminarDelCarrito(${item.id})">Eliminar</button>
-                </td>
+                <td><button class="btn btn-danger" onclick="eliminarDelCarrito(${item.id})">Eliminar</button></td>
             `;
             carritoBody.appendChild(row);
         });
 
-        document.getElementById('totalAPagar').value = "$" + total.toFixed(2);
+        // Actualizar total en la interfaz
+        document.getElementById('totalAPagar').value = `$${total.toFixed(2)}`;
     }
 
-    // Actualizar cantidad de un producto en el carrito
+    // Función para actualizar la cantidad de un producto
     function actualizarCantidad(id, cantidad) {
         const item = carrito.find(i => i.id === id);
-        if (item) {
-            item.cantidad = parseInt(cantidad);
-            actualizarCarrito();
-        }
+        item.cantidad = parseInt(cantidad);
+        actualizarCarrito();
     }
 
     // Eliminar producto del carrito
     function eliminarDelCarrito(id) {
         const index = carrito.findIndex(i => i.id === id);
         if (index !== -1) {
-            carrito.splice(index, 1); // Eliminar producto
+            carrito.splice(index, 1);
             actualizarCarrito();
         }
     }
 
-    // Manejo del formulario de cobro
-    document.getElementById('cobroForm').addEventListener('submit', function(event) {
-        event.preventDefault();
-        const metodoPago = document.getElementById('metodoPago').value;
-        alert("Pago realizado: Total " + document.getElementById('totalAPagar').value + " con método " + metodoPago);
-        // Aquí puedes agregar lógica para procesar el pago y resetear el carrito
-        total = 0;
-        document.getElementById('totalAPagar').value = "$0.00";
-        document.getElementById('metodoPago').selectedIndex = 0; // Resetea el método de pago
-        carrito.length = 0; // Vaciar carrito
-        actualizarCarrito(); // Actualizar la tabla del carrito
-    });
-</script>
+    // Mostrar el formulario para ingresar los datos del cliente
+    function mostrarFormularioCliente() {
+        $('#clienteModal').modal('show');
+    }
 
+    // Generar factura en PDF
+    function generarFactura() {
+        const nombreCliente = document.getElementById('nombreCliente').value;
+        const nitCliente = document.getElementById('nitCliente').value;
+
+        if (!nombreCliente || !nitCliente) {
+            alert("Por favor, ingrese todos los datos del cliente.");
+            return;
+        }
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        doc.text("Factura electronica La Casa Del Rincon Guatemalteco", 10, 10);
+        doc.text("Fecha: " + new Date().toLocaleString(), 10, 20);
+        doc.text("Cliente: " + nombreCliente, 10, 30);
+        doc.text("NIT: " + nitCliente, 10, 40);
+        doc.text("Detalle de la compra:", 10, 50);
+
+        let yPosition = 60;
+        carrito.forEach(item => {
+            doc.text(`${item.nombre} - Cantidad: ${item.cantidad} - Subtotal: $${(item.precio * item.cantidad).toFixed(2)}`, 10, yPosition);
+            yPosition += 10;
+        });
+
+        doc.text(`Total a Pagar: $${total.toFixed(2)}`, 10, yPosition);
+
+        doc.save("factura.pdf");
+        $('#clienteModal').modal('hide'); // Cerrar el modal
+    }
+</script>
 </body>
 </html>
